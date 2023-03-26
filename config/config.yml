@@ -1,0 +1,11 @@
+app:
+  name: 'newsGateway'
+  version:  '1.0.0'
+
+api:
+  newsAddr: 'localhost:8081'
+  commentsAddr: 'localhost:8082'
+  formatterAddr:  'localhost:8083'
+
+server:
+  listen: '8080'
