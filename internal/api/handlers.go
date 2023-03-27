@@ -3,9 +3,12 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -51,17 +54,15 @@ func (a *API) newsListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) fullNewsHandler(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	idValue := q.Get("id")
-
-	new, err := newReq(r, a.NewsAddress, idValue)
+	id := mux.Vars(r)["id"]
+	new, err := newReq(r, a.NewsAddress, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("new request error: %s\n", err), http.StatusInternalServerError)
 		return
 	}
-	comm, err := commReq(r, a.CommentsAddress, idValue)
+	comm, err := commReq(r, a.CommentsAddress, id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("comments request error: %s\n", err), http.StatusInternalServerError)
 		return
 	}
 	new.Comments = comm
@@ -71,7 +72,6 @@ func (a *API) fullNewsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func commReq(r *http.Request, addr string, id string) ([]Comment, error) {
-	var comments []Comment
 
 	req, err := http.NewRequestWithContext(r.Context(),
 		http.MethodGet,
@@ -79,27 +79,28 @@ func commReq(r *http.Request, addr string, id string) ([]Comment, error) {
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("NewRequestWithContext err: " + err.Error())
 	}
 	qReq := req.URL.Query()
 	qReq.Add("id", id)
 	req.URL.RawQuery = qReq.Encode()
-
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("DefaultClient.Do err: " + err.Error())
 	}
+	var comments []Comment
 	err = json.NewDecoder(res.Body).Decode(&comments)
 	if err != nil {
-		return nil, err
+		fmt.Println(res)
+		return nil, errors.New("json.NewDecoder err: " + err.Error())
 	}
-	return comments, err
+	return comments, nil
 }
 
 func newReq(r *http.Request, addr string, id string) (*NewFullDetailed, error) {
 	req, err := http.NewRequestWithContext(r.Context(),
 		http.MethodGet,
-		"http://"+addr+urlNews,
+		"http://"+addr+urlNews+"/"+id,
 		nil,
 	)
 	if err != nil {
@@ -123,22 +124,20 @@ func newReq(r *http.Request, addr string, id string) (*NewFullDetailed, error) {
 }
 
 func (a *API) addCommentHandler(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	idValue := q.Get("id")
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	var c Comment
-	err = json.Unmarshal(body, &c)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	r.Body.Close()
 
 	requestCheckFormat, err := http.NewRequestWithContext(
 		r.Context(),
 		http.MethodPost,
-		"http://"+a.FormatterAddress+urlFormat, bytes.NewBuffer([]byte(c.Text)),
+		"http://"+a.FormatterAddress+urlFormat, bytes.NewBuffer(body),
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -162,6 +161,9 @@ func (a *API) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		qReq := requestComment.URL.Query()
+		qReq.Add("id", idValue)
+		requestComment.URL.RawQuery = qReq.Encode()
 
 		_, err = http.DefaultClient.Do(requestComment)
 		if err != nil {
@@ -174,7 +176,8 @@ func (a *API) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	default:
-		http.Error(w, fmt.Sprintln("comments service error"), http.StatusInternalServerError)
+		fmt.Println(res.StatusCode)
+		http.Error(w, fmt.Sprintln("formatter service error"), res.StatusCode)
 		return
 	}
 }

@@ -1,33 +1,33 @@
 package api
 
 type NewFullDetailed struct {
-	ID       int       // номер записи
-	Title    string    // заголовок публикации
-	PubTime  int64     // время публикации
-	Link     string    // ссылка на источник
-	Content  string    // содержание публикации
-	Comments []Comment // комментарии к публикации
+	ID       int
+	Title    string
+	PubTime  int64
+	Link     string
+	Content  string
+	Comments []Comment
 }
 
 type NewsShortDetailed struct {
-	ID      int    // номер записи
-	Title   string // заголовок публикации
+	ID      int
+	Title   string
 	Content string
-	PubTime int64  // время публикации
-	Link    string // ссылка на источник
+	PubTime int64
+	Link    string
 }
 
 type NewsList struct {
-	Posts []NewsShortDetailed // список сокращенных новостей
+	Posts []NewsShortDetailed
 	Page  Page
 }
 
 type Comment struct {
-	ID       int
-	NewsID   int // id новости
-	ParentID int // id родительского комментария
-	Text     string
-	PubTime  int64
+	ID       int    `json:"id"`
+	NewsID   int    `json:"news_id"`
+	ParentID int    `json:"parent_id"`
+	Msg      string `json:"msg"`
+	PubTime  int64  `json:"pub_time"`
 }
 
 type Page struct {

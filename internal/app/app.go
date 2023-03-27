@@ -15,7 +15,6 @@ import (
 func New() {}
 
 func Run(cfg *config.Config) {
-	// создать роутер в апи, сервер, и передать апи в сервер
 	api := api.New(&cfg.API)
 	router := api.Router()
 	httpServer := server.New(router, server.Port(cfg.Server.Listen))
